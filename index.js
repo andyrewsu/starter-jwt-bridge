@@ -26,9 +26,9 @@ var redirect = function(req, res) {
 
   // Generates url using info from config
   var authorizationUri = oauth2.authCode.authorizeURL({
-    redirect_uri: `${readmeConfig.redirect_uri}?redirect=${req.query.redirect}`,
+    redirect_uri: `${readmeConfig.redirect_uri}`,
     scope: config.scope,
-    state: '',
+    state: `${req.query.redirect}`,
   });
 
   res.redirect(authorizationUri);
@@ -37,6 +37,7 @@ var redirect = function(req, res) {
 // Handles requesting token and forming JWT url to readme
 var callback = function(req, res) {
 
+  req.query.redirect = req.query.state
   var code = req.query.code;
 
   // Exchanges code for token
@@ -53,7 +54,8 @@ var callback = function(req, res) {
 
     console.log({ result });
 
-    var token = oauth2.accessToken.create(result);
+    var token = oauth2.accessToken.create(result).token;
+    var result = token.oauth2_authorization;
 
     if(typeof result === 'string') {
       result = querystring.parse(result);
@@ -67,7 +69,8 @@ var callback = function(req, res) {
         'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
         'User-Agent': 'ReadMe',
-        Authorization: `Bearer ${result.access_token}`,
+        'X-Airbnb-API-Key': config.clientID,
+        'X-Airbnb-OAuth-Token': result.access_token
       },
     };
 
