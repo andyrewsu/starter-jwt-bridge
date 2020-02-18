@@ -23,6 +23,6 @@ exports.loginCallback = function(body, accessToken) {
 // Readme config -- automicatically configured for your project
 exports.readmeConfig = {
   redirect_uri: 'https://oauth.readme.io/p/README_PROJECT/oauth/callback',
-  readme_url: README_URL,
+  readme_url: "https://developer.airbnb.com",
   jwt_secret: JWT_SECRET,
 };

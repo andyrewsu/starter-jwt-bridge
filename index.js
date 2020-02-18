@@ -36,26 +36,28 @@ var callback = function (req, res) {
   var code = req.query.code;
 
   // Exchanges code for token
-  oauth2.authCode.getToken({
-    code: code,
-    redirect_uri: `${readmeConfig.redirect_uri}?redirect=${req.query.redirect}`,
-    client_id: config.clientID,
-    client_secret: config.clientSecret,
+  var auth = 'Basic ' + Buffer.from(config.clientID + ':' + config.clientSecret).toString('base64');
+  var tokenReqOptions = {
+    url: config.tokenPath,
+    json: {
+      code: code
+    },
     headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+      Authorization: auth,
+      'User-Agent': 'ReadMe',
       'X-Airbnb-API-Key': config.clientID,
-    }
-  }, saveToken);
+    },
+    method: 'POST'
+  }
 
   // callback for getToken
-  function saveToken(error, result) {
-    if (error) { return res.status(500).send('Access Token Error: ' + error.message); }
+  request(tokenReqOptions, (err, r, body) => {
+    if (err) { return res.status(500).send('Access Token Error: ' + err.message); }
+    if (body.error_code) { return res.status(body.error_code).send('Access Token Error.'); }
 
-    var token = oauth2.accessToken.create(result).token;
-    var result = token.oauth2_authorization;
-
-    if (typeof result === 'string') {
-      result = querystring.parse(result);
-    }
+    var access_token = body.oauth2_authorization.access_token
 
     // Fetches user information
     var reqOptions = {
@@ -66,7 +68,7 @@ var callback = function (req, res) {
         Accept: 'application/json',
         'User-Agent': 'ReadMe',
         'X-Airbnb-API-Key': config.clientID,
-        'X-Airbnb-OAuth-Token': result.access_token
+        'X-Airbnb-OAuth-Token': access_token
       },
     };
 
@@ -74,12 +76,12 @@ var callback = function (req, res) {
 
       // Transforms user information into readme format
       // More info on the format at https://readme.readme.io/v2.0/docs/passing-data-to-jwt
-      var userData = loginCallback(body, result.access_token);
+      var userData = loginCallback(body, access_token);
 
       // Redirects to readme JWT url
       return req.utils.jwt(userData);
     });
-  }
+  });
 };
 
 app.set('views', './');
