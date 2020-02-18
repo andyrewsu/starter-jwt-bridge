@@ -5,13 +5,8 @@ var config = require('./config').config;
 var loginCallback = require('./config').loginCallback;
 var readmeConfig = require('./config').readmeConfig;
 var utils = require('./utils');
-var http = require('http');
 var request = require('request');
 var querystring = require('querystring');
-var md5 = require('md5');
-require('now-logs')('readme-LOG_SECRET');
-
-var authorizationUri = '';
 
 var oauth2 = require('simple-oauth2')({
   site: true, // Don't delete this, weird requirement of simple-oauth2
@@ -22,7 +17,7 @@ var oauth2 = require('simple-oauth2')({
 });
 
 // Makes initail reqeust to oauth server
-var redirect = function(req, res) {
+var redirect = function (req, res) {
 
   // Generates url using info from config
   var authorizationUri = oauth2.authCode.authorizeURL({
@@ -35,7 +30,7 @@ var redirect = function(req, res) {
 };
 
 // Handles requesting token and forming JWT url to readme
-var callback = function(req, res) {
+var callback = function (req, res) {
 
   req.query.redirect = req.query.state
   var code = req.query.code;
@@ -46,18 +41,19 @@ var callback = function(req, res) {
     redirect_uri: `${readmeConfig.redirect_uri}?redirect=${req.query.redirect}`,
     client_id: config.clientID,
     client_secret: config.clientSecret,
+    headers: {
+      'X-Airbnb-API-Key': config.clientID,
+    }
   }, saveToken);
 
   // callback for getToken
   function saveToken(error, result) {
     if (error) { return res.status(500).send('Access Token Error: ' + error.message); }
 
-    console.log({ result });
-
     var token = oauth2.accessToken.create(result).token;
     var result = token.oauth2_authorization;
 
-    if(typeof result === 'string') {
+    if (typeof result === 'string') {
       result = querystring.parse(result);
     }
 
@@ -76,13 +72,9 @@ var callback = function(req, res) {
 
     request(reqOptions, (err, r, body) => {
 
-      console.log({ body })
-
       // Transforms user information into readme format
       // More info on the format at https://readme.readme.io/v2.0/docs/passing-data-to-jwt
       var userData = loginCallback(body, result.access_token);
-
-      console.log({ userData });
 
       // Redirects to readme JWT url
       return req.utils.jwt(userData);
@@ -95,9 +87,9 @@ app.set('view engine', 'pug');
 app.use(express.cookieParser());
 app.use(utils.readmeSetup);
 
-app.get('/', utils.homePage);
-app.get('/p/:project/oauth', redirect);
-app.get('/p/:project/oauth/callback', callback);
+app.get('/', (req, res) => res.redirect('/oauth'));
+app.get('/oauth', redirect);
+app.get('/oauth/callback', callback);
 
 var port = process.env.PORT || 3001;
 app.listen(port);
